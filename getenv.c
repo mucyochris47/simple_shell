@@ -1,26 +1,94 @@
 #include "shell.h"
 
 /**
- * _getenv - Retrieves the value of an environment variable
- * @name: Name of the environment variable to retrieve
- * Return: Value of the environment variable or NULL if not found
+ * retrieve_environment - returns a string array copy of the environment
+ * @context: Structure containing potential arguments. Used to maintain
+ *           constant function prototype.
+ * Return: Pointer to the environment string array
  */
-char *_getenv(const char *name)
+char **retrieve_environment(info_t *context)
 {
-    extern char **environ;
-    char *env;
-    size_t name_len = strlen(name);
-
-    if (name == NULL || name_len == 0)
-        return (NULL);
-
-    for (int i = 0; environ[i] != NULL; i++)
+    if (!context->environ || context->env_modified)
     {
-        env = environ[i];
-        if (strncmp(env, name, name_len) == 0 && env[name_len] == '=')
-            return (env + name_len + 1);  /* Return value after '=' */
+        context->environ = convert_list_to_strings(context->env);
+        context->env_modified = 0;
     }
 
-    return (NULL);  /* Environment variable not found */
+    return (context->environ);
+}
+
+/**
+ * remove_environment - Remove an environment variable
+ * @context: Structure containing potential arguments. Used to maintain
+ *           constant function prototype.
+ * @var: The environment variable to remove
+ * Return: 1 if deleted, 0 otherwise
+ */
+int remove_environment(info_t *context, char *var)
+{
+    list_t *node = context->env;
+    size_t index = 0;
+    char *match;
+
+    if (!node || !var)
+        return (0);
+
+    while (node)
+    {
+        match = starts_with(node->str, var);
+        if (match && *match == '=')
+        {
+            context->env_modified = delete_node_at_index(&(context->env), index);
+            index = 0;
+            node = context->env;
+            continue;
+        }
+        node = node->next;
+        index++;
+    }
+    return (context->env_modified);
+}
+
+/**
+ * create_environment - Initialize a new environment variable,
+ *                       or modify an existing one
+ * @context: Structure containing potential arguments. Used to maintain
+ *           constant function prototype.
+ * @var: The environment variable to set
+ * @value: The value for the environment variable
+ * Return: Always 0
+ */
+int create_environment(info_t *context, char *var, char *value)
+{
+    char *entry = NULL;
+    list_t *node;
+    char *match;
+
+    if (!var || !value)
+        return (0);
+
+    entry = malloc(_strlen(var) + _strlen(value) + 2);
+    if (!entry)
+        return (1);
+    _strcpy(entry, var);
+    _strcat(entry, "=");
+    _strcat(entry, value);
+    node = context->env;
+    while (node)
+    {
+        match = starts_with(node->str, var);
+        if (match && *match == '=')
+        {
+            free(node->str);
+            node->str = entry;
+            context->env_modified = 1;
+            return (0);
+        }
+        node = node->next;
+    }
+    append_node_end(&(context->env), entry, 0);
+    free(entry);
+    context->env_modified = 1;
+    return (0);
 }
 

@@ -1,66 +1,118 @@
 #include "shell.h"
-#include <stdlib.h>
-#include <string.h>
 
 /**
- * tokenize_input - Tokenizes an input string into an array of arguments.
- * @input: The input string to tokenize.
- *
- * Return: An array of strings (arguments) or NULL if memory allocation fails.
+ * **split_text - splits a string into words using specified delimiters.
+ * Repeated delimiters are ignored.
+ * @text: the input string to split
+ * @delimiters: string containing delimiters
+ * Return: a pointer to an array of strings, or NULL on failure
  */
-char **tokenize_input(char *input)
+char **split_text(char *text, char *delimiters)
 {
-    char **tokens = NULL;
-    char *token = NULL;
-    size_t size = 0;
-    size_t i = 0;
+    int index, start, end, count = 0;
+    char **result;
 
-    // Use strtok to tokenize the input string
-    token = strtok(input, " \t\n");
-    while (token != NULL)
+    if (text == NULL || text[0] == '\0')
+        return (NULL);
+    if (delimiters == NULL)
+        delimiters = " ";
+
+    for (index = 0; text[index] != '\0'; index++)
     {
-        // Reallocate memory for tokens array
-        tokens = realloc(tokens, sizeof(char *) * (size + 1));
-        if (tokens == NULL)
-        {
-            perror("realloc");
-            exit(EXIT_FAILURE);
-        }
-        tokens[size] = strdup(token);
-        if (tokens[size] == NULL)
-        {
-            perror("strdup");
-            exit(EXIT_FAILURE);
-        }
-        size++;
-        token = strtok(NULL, " \t\n");
+        if (!is_delim(text[index], delimiters) && (is_delim(text[index + 1], delimiters) || text[index + 1] == '\0'))
+            count++;
     }
 
-    // Null-terminate the array of tokens
-    tokens = realloc(tokens, sizeof(char *) * (size + 1));
-    if (tokens == NULL)
-    {
-        perror("realloc");
-        exit(EXIT_FAILURE);
-    }
-    tokens[size] = NULL;
+    if (count == 0)
+        return (NULL);
 
-    return tokens;
+    result = malloc((count + 1) * sizeof(char *));
+    if (!result)
+        return (NULL);
+
+    for (index = 0, start = 0; count > 0; count--)
+    {
+        while (is_delim(text[start], delimiters))
+            start++;
+
+        end = start;
+        while (!is_delim(text[end], delimiters) && text[end])
+            end++;
+
+        result[index] = malloc((end - start + 1) * sizeof(char));
+        if (!result[index])
+        {
+            for (int i = 0; i < index; i++)
+                free(result[i]);
+            free(result);
+            return (NULL);
+        }
+
+        for (int i = start; i < end; i++)
+            result[index][i - start] = text[i];
+        result[index][end - start] = '\0';
+
+        start = end;
+        index++;
+    }
+    result[index] = NULL;
+    return (result);
 }
 
 /**
- * free_tokens - Frees the memory allocated for the array of tokens.
- * @tokens: The array of tokens to free.
+ * **split_text_by_char - splits a string into words using a single delimiter.
+ * @text: the input string to split
+ * @delimiter: the single delimiter character
+ * Return: a pointer to an array of strings, or NULL on failure
  */
-void free_tokens(char **tokens)
+char **split_text_by_char(char *text, char delimiter)
 {
-    char **temp = tokens;
+    int index, start, end, count = 0;
+    char **result;
 
-    while (*temp)
+    if (text == NULL || text[0] == '\0')
+        return (NULL);
+
+    for (index = 0; text[index] != '\0'; index++)
     {
-        free(*temp);
-        temp++;
+        if ((text[index] != delimiter && text[index + 1] == delimiter) ||
+            (text[index] != delimiter && text[index + 1] == '\0') || text[index + 1] == delimiter)
+            count++;
     }
-    free(tokens);
+
+    if (count == 0)
+        return (NULL);
+
+    result = malloc((count + 1) * sizeof(char *));
+    if (!result)
+        return (NULL);
+
+    for (index = 0, start = 0; count > 0; count--)
+    {
+        while (text[start] == delimiter)
+            start++;
+
+        end = start;
+        while (text[end] != delimiter && text[end] && text[end] != delimiter)
+            end++;
+
+        result[index] = malloc((end - start + 1) * sizeof(char));
+        if (!result[index])
+        {
+            for (int i = 0; i < index; i++)
+                free(result[i]);
+            free(result);
+            return (NULL);
+        }
+
+        for (int i = start; i < end; i++)
+            result[index][i - start] = text[i];
+        result[index][end - start] = '\0';
+
+        start = end;
+        index++;
+    }
+    result[index] = NULL;
+    return (result);
 }
 

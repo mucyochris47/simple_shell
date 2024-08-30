@@ -1,81 +1,45 @@
 #include "shell.h"
 
 /**
- * main - Entry point of the shell program
- * @argc: Number of command-line arguments
- * @argv: Array of command-line argument strings
- * Return: Exit status
+ * entry_point - main function
+ * @arg_count: number of arguments
+ * @arg_vector: array of argument strings
+ *
+ * Return: 0 on success, 1 on error
  */
-int main(int argc, char **argv)
+int entry_point(int arg_count, char **arg_vector)
 {
-    char *input = NULL;
-    size_t len = 0;
-    ssize_t nread;
-    ListNode *env_vars = NULL;
-    (void)argc; /* Unused parameter */
-    (void)argv; /* Unused parameter */
+    info_t info_data[] = { INFO_INIT };
+    int file_desc = 2;
 
-    /* Example: Initialize environment variables */
-    initialize_environment(&env_vars);
+    asm ("mov %1, %0\n\t"
+         "add $3, %0"
+         : "=r" (file_desc)
+         : "r" (file_desc));
 
-    while (1)
+    if (arg_count == 2)
     {
-        /* Print a prompt */
-        printf("shell> ");
-
-        /* Read input from the user */
-        nread = getline(&input, &len, stdin);
-        if (nread == -1)
+        file_desc = open(arg_vector[1], O_RDONLY);
+        if (file_desc == -1)
         {
-            if (feof(stdin))
+            if (errno == EACCES)
+                exit(126);
+            if (errno == ENOENT)
             {
-                /* End of input (Ctrl-D) */
-                printf("\n");
-                break;
+                _eputs(arg_vector[0]);
+                _eputs(": 0: Unable to open ");
+                _eputs(arg_vector[1]);
+                _eputchar('\n');
+                _eputchar(BUF_FLUSH);
+                exit(127);
             }
-            perror("getline");
-            continue;
+            return (EXIT_FAILURE);
         }
-
-        /* Remove newline character from input */
-        if (input[nread - 1] == '\n')
-            input[nread - 1] = '\0';
-
-        /* Process the input command */
-        process_command(input, &env_vars);
+        info_data->readfd = file_desc;
     }
-
-    /* Cleanup */
-    free(input);
-    free_list(env_vars);
-
+    populate_env_list(info_data);
+    read_history(info_data);
+    hsh(info_data, arg_vector);
     return (EXIT_SUCCESS);
-}
-
-/**
- * initialize_environment - Initializes the environment variable list
- * @env_vars: Pointer to the head of the environment variable list
- */
-void initialize_environment(ListNode **env_vars)
-{
-    extern char **environ;
-    char **env = environ;
-
-    while (*env)
-    {
-        add_node(env_vars, *env);
-        env++;
-    }
-}
-
-/**
- * process_command - Processes the input command and executes it
- * @input: The input command string
- * @env_vars: Pointer to the head of the environment variable list
- */
-void process_command(char *input, ListNode **env_vars)
-{
-    /* TODO: Implement command processing and execution */
-    printf("Processing command: %s\n", input);
 }
 

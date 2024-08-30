@@ -1,75 +1,124 @@
 #include "shell.h"
 
 /**
- * find_node - Finds a node in the linked list by its data
- * @head: Pointer to the head of the list
- * @data: Data to search for
- * Return: Pointer to the node with the matching data, or NULL if not found
+ * count_list - calculates the number of nodes in a linked list
+ * @start_node: pointer to the first node
+ *
+ * Return: number of nodes in the list
  */
-ListNode *find_node(const ListNode *head, const char *data)
+size_t count_list(const list_t *start_node)
 {
-    const ListNode *current = head;
+    size_t count = 0;
 
-    while (current != NULL)
+    while (start_node)
     {
-        if (strcmp(current->data, data) == 0)
-            return (ListNode *)current;
-        current = current->next;
+        start_node = start_node->next;
+        count++;
+    }
+    return (count);
+}
+
+/**
+ * convert_list_to_array - creates an array of strings from the list->str fields
+ * @list_start: pointer to the first node
+ *
+ * Return: array of strings
+ */
+char **convert_list_to_array(list_t *list_start)
+{
+    list_t *current_node = list_start;
+    size_t list_size = count_list(list_start), idx;
+    char **str_array;
+    char *str;
+
+    if (!list_start || !list_size)
+        return (NULL);
+
+    str_array = malloc(sizeof(char *) * (list_size + 1));
+    if (!str_array)
+        return (NULL);
+
+    for (idx = 0; current_node; current_node = current_node->next, idx++)
+    {
+        str = malloc(_strlen(current_node->str) + 1);
+        if (!str)
+        {
+            for (size_t k = 0; k < idx; k++)
+                free(str_array[k]);
+            free(str_array);
+            return (NULL);
+        }
+
+        str = _strcpy(str, current_node->str);
+        str_array[idx] = str;
+    }
+    str_array[idx] = NULL;
+    return (str_array);
+}
+
+/**
+ * display_list_elements - displays all elements of a list_t linked list
+ * @start_node: pointer to the first node
+ *
+ * Return: number of nodes in the list
+ */
+size_t display_list_elements(const list_t *start_node)
+{
+    size_t count = 0;
+
+    while (start_node)
+    {
+        _puts(convert_number(start_node->num, 10, 0));
+        _putchar(':');
+        _putchar(' ');
+        _puts(start_node->str ? start_node->str : "(nil)");
+        _putchar('\n');
+        start_node = start_node->next;
+        count++;
+    }
+    return (count);
+}
+
+/**
+ * find_node_with_prefix - finds node whose string starts with a given prefix
+ * @start_node: pointer to the head of the list
+ * @prefix: string to match
+ * @char_after_prefix: the character after the prefix to match, or -1
+ *
+ * Return: node with matching prefix or NULL
+ */
+list_t *find_node_with_prefix(list_t *start_node, char *prefix, char char_after_prefix)
+{
+    char *match = NULL;
+
+    while (start_node)
+    {
+        match = starts_with(start_node->str, prefix);
+        if (match && ((char_after_prefix == -1) || (*match == char_after_prefix)))
+            return (start_node);
+        start_node = start_node->next;
     }
     return (NULL);
 }
 
 /**
- * delete_node - Deletes the first occurrence of a node with the specified data
- * @head: Double pointer to the head of the list
- * @data: Data to delete
- * Return: 1 on success, or 0 if the node was not found
+ * get_node_position - finds the position of a node in the list
+ * @start_node: pointer to the head of the list
+ * @target_node: pointer to the node to find
+ *
+ * Return: position of the node or -1
  */
-int delete_node(ListNode **head, const char *data)
+ssize_t get_node_position(list_t *start_node, list_t *target_node)
 {
-    ListNode *current = *head;
-    ListNode *prev = NULL;
+    size_t position = 0;
 
-    if (current != NULL && strcmp(current->data, data) == 0)
+    while (start_node)
     {
-        *head = current->next;
-        free(current->data);
-        free(current);
-        return (1);
+        if (start_node == target_node)
+            return (position);
+        start_node = start_node->next;
+        position++;
     }
-
-    while (current != NULL && strcmp(current->data, data) != 0)
-    {
-        prev = current;
-        current = current->next;
-    }
-
-    if (current == NULL)
-        return (0);
-
-    prev->next = current->next;
-    free(current->data);
-    free(current);
-
-    return (1);
-}
-
-/**
- * length_list - Calculates the length of the linked list
- * @head: Pointer to the head of the list
- * Return: The number of nodes in the list
- */
-size_t length_list(const ListNode *head)
-{
-    size_t length = 0;
-    const ListNode *current = head;
-
-    while (current != NULL)
-    {
-        length++;
-        current = current->next;
-    }
-
-    return (length);
+    return (-1);
 }
 

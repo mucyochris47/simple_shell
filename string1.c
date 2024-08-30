@@ -1,95 +1,95 @@
 #include "shell.h"
 
 /**
- * _strcat - Concatenates two strings.
- * @dest: The destination string.
- * @src: The source string to append.
+ * clone_string - duplicates the content of a source string into a destination buffer
+ * @dest: the buffer to hold the duplicated string
+ * @src: the source string to copy from
  *
- * Return: A pointer to the resulting concatenated string.
+ * Return: pointer to the destination buffer
  */
-char *_strcat(char *dest, const char *src)
+char *clone_string(char *dest, const char *src)
 {
-    char *ptr = dest;
+    int idx = 0;
 
-    // Move to the end of the destination string
-    while (*ptr)
-        ptr++;
+    if (dest == src || src == NULL)
+        return dest;
 
-    // Append source string to destination string
-    while (*src)
-        *ptr++ = *src++;
-
-    // Null-terminate the resulting string
-    *ptr = '\0';
-
-    return (dest);
-}
-
-/**
- * _strncat - Concatenates up to n characters from source string to destination string.
- * @dest: The destination string.
- * @src: The source string to append.
- * @n: The maximum number of characters to append.
- *
- * Return: A pointer to the resulting concatenated string.
- */
-char *_strncat(char *dest, const char *src, size_t n)
-{
-    char *ptr = dest;
-
-    // Move to the end of the destination string
-    while (*ptr)
-        ptr++;
-
-    // Append up to n characters from the source string
-    while (n-- && *src)
-        *ptr++ = *src++;
-
-    // Null-terminate the resulting string
-    *ptr = '\0';
-
-    return (dest);
-}
-
-/**
- * _strchr - Locates the first occurrence of a character in a string.
- * @str: The string to search.
- * @c: The character to locate.
- *
- * Return: A pointer to the first occurrence of the character, or NULL if not found.
- */
-char *_strchr(const char *str, int c)
-{
-    while (*str != (char)c)
+    while (src[idx])
     {
-        if (*str == '\0')
-            return (NULL);
-        str++;
+        dest[idx] = src[idx];
+        idx++;
     }
-
-    return ((char *)str);
+    dest[idx] = '\0'; // Ensure null termination
+    return dest;
 }
 
 /**
- * _strncpy - Copies up to n characters from source string to destination string.
- * @dest: The destination string.
- * @src: The source string.
- * @n: The maximum number of characters to copy.
+ * create_string_copy - allocates memory and copies a string to it
+ * @input: the string to copy
  *
- * Return: A pointer to the destination string.
+ * Return: pointer to the newly allocated string
  */
-char *_strncpy(char *dest, const char *src, size_t n)
+char *create_string_copy(const char *input)
 {
-    char *ptr = dest;
+    int length = 0;
+    char *new_string;
 
-    // Copy up to n characters from the source string
-    while (n-- && *src)
-        *ptr++ = *src++;
+    if (input == NULL)
+        return NULL;
 
-    // Null-fill the rest of the destination string if n is not exhausted
-    while (n--)
-        *ptr++ = '\0';
+    while (input[length])
+        length++;
 
-    return (dest);
+    new_string = malloc(sizeof(char) * (length + 1));
+    if (!new_string)
+        return NULL;
+
+    for (length++; length--;)
+        new_string[length] = input[length];
+
+    return new_string;
+}
+
+/**
+ * display_string - prints a string to the standard output
+ * @str: the string to print
+ *
+ * Return: Nothing
+ */
+void display_string(const char *str)
+{
+    int i = 0;
+
+    if (str == NULL)
+        return;
+
+    while (str[i] != '\0')
+    {
+        output_char(str[i]);
+        i++;
+    }
+}
+
+/**
+ * output_char - writes a single character to the standard output
+ * @c: the character to write
+ *
+ * Return: On success 1.
+ * On error, -1 is returned, and errno is set appropriately.
+ */
+int output_char(char c)
+{
+    static int buffer_index;
+    static char buffer[WRITE_BUF_SIZE];
+
+    if (c == BUF_FLUSH || buffer_index >= WRITE_BUF_SIZE)
+    {
+        write(1, buffer, buffer_index);
+        buffer_index = 0;
+    }
+    if (c != BUF_FLUSH)
+        buffer[buffer_index++] = c;
+
+    return 1;
 }
 

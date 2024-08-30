@@ -1,95 +1,75 @@
 #include "shell.h"
 
 /**
- * _strdup - Duplicates a string.
- * @str: The string to duplicate.
+ * get_str_length - calculates the length of a given string
+ * @str: the string whose length to determine
  *
- * Return: A pointer to the duplicated string.
+ * Return: integer length of the string
  */
-char *_strdup(const char *str)
+int get_str_length(char *str)
 {
-    char *dup;
-    size_t len = strlen(str) + 1;
+    int len = 0;
 
-    dup = malloc(len);
-    if (!dup)
-        return (NULL);
+    if (!str)
+        return (0);
 
-    memcpy(dup, str, len);
-    return (dup);
+    while (*str++)
+        len++;
+    return (len);
 }
 
 /**
- * _strtok - Tokenizes a string using a delimiter.
- * @str: The string to tokenize.
- * @delim: The delimiter string.
+ * lex_compare - performs lexicographic comparison of two strings
+ * @str1: the first string
+ * @str2: the second string
  *
- * Return: A pointer to the next token, or NULL if no more tokens.
+ * Return: negative if str1 < str2, positive if str1 > str2, zero if str1 == str2
  */
-char *_strtok(char *str, const char *delim)
+int lex_compare(char *str1, char *str2)
 {
-    static char *next_token = NULL;
-    char *start;
-    size_t len;
-
-    if (str)
-        next_token = str;
-
-    if (!next_token)
-        return (NULL);
-
-    start = next_token;
-
-    /* Find the end of the token */
-    while (*next_token && !strchr(delim, *next_token))
-        next_token++;
-
-    /* If we found a token, null-terminate it */
-    if (*next_token)
+    while (*str1 && *str2)
     {
-        *next_token = '\0';
-        next_token++;
+        if (*str1 != *str2)
+            return (*str1 - *str2);
+        str1++;
+        str2++;
     }
-    else
-    {
-        next_token = NULL;
-    }
+    return (*str1 - *str2);
+}
 
+/**
+ * find_start - checks if the prefix is at the beginning of the string
+ * @haystack: the string to search within
+ * @prefix: the prefix to look for
+ *
+ * Return: address of the next char after prefix in haystack, or NULL
+ */
+char *find_start(const char *haystack, const char *prefix)
+{
+    while (*prefix)
+    {
+        if (*prefix++ != *haystack++)
+            return (NULL);
+    }
+    return ((char *)haystack);
+}
+
+/**
+ * append_str - appends the source string to the destination buffer
+ * @dest: the destination buffer
+ * @src: the source string to append
+ *
+ * Return: pointer to the destination buffer
+ */
+char *append_str(char *dest, char *src)
+{
+    char *start = dest;
+
+    while (*dest)
+        dest++;
+    while (*src)
+        *dest++ = *src++;
+    *dest = '\0';
     return (start);
-}
-
-/**
- * _strlen - Computes the length of a string.
- * @str: The string.
- *
- * Return: The length of the string.
- */
-size_t _strlen(const char *str)
-{
-    const char *s;
-
-    for (s = str; *s; s++)
-        ;
-
-    return (s - str);
-}
-
-/**
- * _strcmp - Compares two strings.
- * @s1: The first string.
- * @s2: The second string.
- *
- * Return: An integer less than, equal to, or greater than zero, according to
- *         whether s1 is less than, equal to, or greater than s2.
- */
-int _strcmp(const char *s1, const char *s2)
-{
-    while (*s1 && (*s1 == *s2))
-    {
-        s1++;
-        s2++;
-    }
-
-    return (*(unsigned char *)s1 - *(unsigned char *)s2);
 }
 

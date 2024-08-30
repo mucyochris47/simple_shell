@@ -1,50 +1,74 @@
 #include "shell.h"
 
 /**
- * get_user_info - Retrieves user information like username and home directory
- * @info: Structure to store user information
- * Return: 0 on success, -1 on failure
+ * initialize_info - sets up the info_t structure
+ * @info: pointer to the structure to initialize
  */
-int get_user_info(UserInfo *info)
+void initialize_info(info_t *info)
 {
-    struct passwd *pwd;
-    
-    if (info == NULL)
-        return (-1);
-
-    pwd = getpwuid(getuid());
-    if (pwd == NULL)
-        return (-1);
-
-    info->username = strdup(pwd->pw_name);
-    info->home_directory = strdup(pwd->pw_dir);
-
-    if (info->username == NULL || info->home_directory == NULL)
-        return (-1);
-
-    return (0);
+    info->arg = NULL;
+    info->argv = NULL;
+    info->path = NULL;
+    info->argc = 0;
 }
 
 /**
- * get_shell_info - Retrieves information about the current shell
- * @info: Structure to store shell information
- * Return: 0 on success, -1 on failure
+ * configure_info - sets up the info_t structure with command arguments
+ * @info: pointer to the structure to configure
+ * @args: argument vector
  */
-int get_shell_info(ShellInfo *info)
+void configure_info(info_t *info, char **args)
 {
-    char *shell_path;
+    int count = 0;
 
-    if (info == NULL)
-        return (-1);
+    info->fname = args[0];
+    if (info->arg)
+    {
+        info->argv = split_string(info->arg, " \t");
+        if (!info->argv)
+        {
+            info->argv = malloc(sizeof(char *) * 2);
+            if (info->argv)
+            {
+                info->argv[0] = duplicate_string(info->arg);
+                info->argv[1] = NULL;
+            }
+        }
+        for (count = 0; info->argv && info->argv[count]; count++)
+            ;
+        info->argc = count;
 
-    shell_path = getenv("SHELL");
-    if (shell_path == NULL)
-        return (-1);
+        process_aliases(info);
+        process_variables(info);
+    }
+}
 
-    info->shell_path = strdup(shell_path);
-    if (info->shell_path == NULL)
-        return (-1);
-
-    return (0);
+/**
+ * release_info - frees fields of the info_t structure
+ * @info: pointer to the structure to release
+ * @all: flag indicating if all fields should be freed
+ */
+void release_info(info_t *info, int all)
+{
+    free_array(info->argv);
+    info->argv = NULL;
+    info->path = NULL;
+    if (all)
+    {
+        if (!info->cmd_buf)
+            free(info->arg);
+        if (info->env)
+            free_list(&(info->env));
+        if (info->history)
+            free_list(&(info->history));
+        if (info->alias)
+            free_list(&(info->alias));
+        free_array(info->environ);
+        info->environ = NULL;
+        free_pointer((void **)info->cmd_buf);
+        if (info->readfd > 2)
+            close(info->readfd);
+        _putchar(BUF_FLUSH);
+    }
 }
 

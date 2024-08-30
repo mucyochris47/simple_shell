@@ -1,75 +1,153 @@
 #include "shell.h"
 
 /**
- * add_to_history - Adds a command to the history list
- * @history: Pointer to the history list
- * @command: Command to add to history
- * Return: 0 on success, -1 on failure
+ * fetch_history_file - retrieves the path to the history file
+ * @data: parameter structure
+ *
+ * Return: dynamically allocated string containing the history file path
  */
-int add_to_history(HistoryList *history, const char *command)
+char *fetch_history_file(data_t *data)
 {
-    HistoryNode *new_node;
+    char *path, *full_path;
 
-    if (history == NULL || command == NULL)
+    path = get_environment_variable(data, "HOME=");
+    if (!path)
+        return (NULL);
+    full_path = malloc(sizeof(char) * (_strlen(path) + _strlen(HISTORY_FILE) + 2));
+    if (!full_path)
+        return (NULL);
+    full_path[0] = '\0';
+    _strcpy(full_path, path);
+    _strcat(full_path, "/");
+    _strcat(full_path, HISTORY_FILE);
+    return (full_path);
+}
+
+/**
+ * save_history - writes the history to a file, creating or appending as needed
+ * @data: the parameter structure
+ *
+ * Return: 1 on success, otherwise -1
+ */
+int save_history(data_t *data)
+{
+    ssize_t file_descriptor;
+    char *file_path = fetch_history_file(data);
+    node_t *current_node = NULL;
+
+    if (!file_path)
         return (-1);
 
-    new_node = malloc(sizeof(HistoryNode));
-    if (new_node == NULL)
+    file_descriptor = open(file_path, O_CREAT | O_TRUNC | O_RDWR, 0644);
+    free(file_path);
+    if (file_descriptor == -1)
         return (-1);
 
-    new_node->command = strdup(command);
-    if (new_node->command == NULL)
+    for (current_node = data->history; current_node; current_node = current_node->next)
     {
-        free(new_node);
-        return (-1);
+        print_to_file(current_node->str, file_descriptor);
+        write_to_file('\n', file_descriptor);
     }
+    write_to_file(BUFFER_FLUSH, file_descriptor);
+    close(file_descriptor);
+    return (1);
+}
 
-    new_node->next = history->head;
-    history->head = new_node;
+/**
+ * load_history - loads history from a file
+ * @data: the parameter structure
+ *
+ * Return: number of history lines on success, 0 otherwise
+ */
+int load_history(data_t *data)
+{
+    int index, last_pos = 0, count = 0;
+    ssize_t file_descriptor, read_length, file_size = 0;
+    struct stat file_stats;
+    char *buffer = NULL, *file_path = fetch_history_file(data);
 
+    if (!file_path)
+        return (0);
+
+    file_descriptor = open(file_path, O_RDONLY);
+    free(file_path);
+    if (file_descriptor == -1)
+        return (0);
+
+    if (!fstat(file_descriptor, &file_stats))
+        file_size = file_stats.st_size;
+    if (file_size < 2)
+        return (0);
+
+    buffer = malloc(sizeof(char) * (file_size + 1));
+    if (!buffer)
+        return (0);
+
+    read_length = read(file_descriptor, buffer, file_size);
+    buffer[file_size] = '\0';
+    if (read_length <= 0)
+        return (free(buffer), 0);
+
+    close(file_descriptor);
+
+    for (index = 0; index < file_size; index++)
+        if (buffer[index] == '\n')
+        {
+            buffer[index] = '\0';
+            append_to_history_list(data, buffer + last_pos, count++);
+            last_pos = index + 1;
+        }
+
+    if (last_pos != index)
+        append_to_history_list(data, buffer + last_pos, count++);
+
+    free(buffer);
+    data->history_count = count;
+
+    while (data->history_count-- >= HISTORY_MAX)
+        remove_node_at_index(&(data->history), 0);
+
+    update_history_numbers(data);
+    return (data->history_count);
+}
+
+/**
+ * append_to_history_list - adds an entry to the history linked list
+ * @data: structure containing arguments
+ * @entry: history entry buffer
+ * @line_number: line number in the history
+ *
+ * Return: Always 0
+ */
+int append_to_history_list(data_t *data, char *entry, int line_number)
+{
+    node_t *new_node = NULL;
+
+    if (data->history)
+        new_node = data->history;
+    add_node_to_end(&new_node, entry, line_number);
+
+    if (!data->history)
+        data->history = new_node;
     return (0);
 }
 
 /**
- * print_history - Prints the command history
- * @history: Pointer to the history list
+ * update_history_numbers - updates the history line numbers
+ * @data: structure containing arguments
+ *
+ * Return: the new history count
  */
-void print_history(const HistoryList *history)
+int update_history_numbers(data_t *data)
 {
-    HistoryNode *current;
+    node_t *current_node = data->history;
+    int count = 0;
 
-    if (history == NULL)
-        return;
-
-    current = history->head;
-    while (current != NULL)
+    while (current_node)
     {
-        printf("%s\n", current->command);
-        current = current->next;
+        current_node->num = count++;
+        current_node = current_node->next;
     }
-}
-
-/**
- * free_history - Frees the memory used by the history list
- * @history: Pointer to the history list
- */
-void free_history(HistoryList *history)
-{
-    HistoryNode *current;
-    HistoryNode *next;
-
-    if (history == NULL)
-        return;
-
-    current = history->head;
-    while (current != NULL)
-    {
-        next = current->next;
-        free(current->command);
-        free(current);
-        current = next;
-    }
-
-    free(history);
+    return (data->history_count = count);
 }
 

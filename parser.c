@@ -1,76 +1,101 @@
 #include "shell.h"
 
 /**
- * parse_command - Parses a command string into arguments
- * @command: The command string to parse
- * @argv: Array to store the parsed arguments
- * Return: Number of arguments parsed
+ * is_cmd - determines if a file is an executable command
+ * @info: the info struct
+ * @path: path to the file
+ *
+ * Return: 1 if true, 0 otherwise
  */
-int parse_command(char *command, char **argv)
+int is_cmd(info_t *info, char *path)
 {
-    int argc = 0;
-    char *token;
+	struct stat st;
 
-    if (command == NULL)
-        return 0;
+	(void)info;  // Unused parameter
+	if (!path || stat(path, &st))
+		return (0);
 
-    token = strtok(command, " \t\n");
-    while (token != NULL)
-    {
-        argv[argc++] = token;
-        token = strtok(NULL, " \t\n");
-    }
-    argv[argc] = NULL;  // Null-terminate the argument list
-
-    return argc;
+	// Check if the file is a regular file
+	return (S_ISREG(st.st_mode));
 }
 
 /**
- * handle_input - Reads and parses input from the user
- * @input: Buffer to store the input
- * @size: Size of the buffer
- * Return: Number of characters read
+ * dup_chars - duplicates a substring of characters from the PATH string
+ * @pathstr: the PATH string
+ * @start: starting index
+ * @stop: stopping index
+ *
+ * Return: pointer to a new buffer containing the substring
  */
-ssize_t handle_input(char *input, size_t size)
+char *dup_chars(const char *pathstr, int start, int stop)
 {
-    ssize_t bytes_read;
+	static char buf[1024];  // Static buffer to hold the substring
+	int i = 0;
 
-    bytes_read = getline(&input, &size, stdin);
-    if (bytes_read == -1)
-    {
-        perror("getline");
-        exit(EXIT_FAILURE);
-    }
+	if (start >= stop || stop >= sizeof(buf))
+		return (NULL);
 
-    // Remove newline character if present
-    if (bytes_read > 0 && input[bytes_read - 1] == '\n')
-        input[bytes_read - 1] = '\0';
-
-    return bytes_read;
+	// Copy characters from start to stop index
+	for (i = 0; start < stop; start++)
+	{
+		if (pathstr[start] != ':')
+			buf[i++] = pathstr[start];
+	}
+	buf[i] = '\0';  // Null-terminate the buffer
+	return (buf);
 }
 
 /**
- * split_input - Splits the input into commands based on delimiters
- * @input: The input string to split
- * @commands: Array to store the split commands
- * Return: Number of commands split
+ * find_path - finds the full path of the command in the PATH string
+ * @info: the info struct
+ * @pathstr: the PATH string
+ * @cmd: the command to find
+ *
+ * Return: full path of the command if found, or NULL
  */
-int split_input(char *input, char **commands)
+char *find_path(info_t *info, const char *pathstr, const char *cmd)
 {
-    int count = 0;
-    char *token;
+	int i = 0, curr_pos = 0;
+	char *path;
 
-    if (input == NULL)
-        return 0;
+	if (!pathstr || !cmd)
+		return (NULL);
 
-    token = strtok(input, ";");
-    while (token != NULL)
-    {
-        commands[count++] = token;
-        token = strtok(NULL, ";");
-    }
-    commands[count] = NULL;  // Null-terminate the command list
+	// Check for a relative path
+	if (cmd[0] == '.' && cmd[1] == '/')
+	{
+		if (is_cmd(info, (char *)cmd))
+			return (strdup(cmd));
+	}
 
-    return count;
+	// Iterate over the PATH string to find the command
+	while (pathstr[i])
+	{
+		if (pathstr[i] == ':' || pathstr[i] == '\0')
+		{
+			path = dup_chars(pathstr, curr_pos, i);
+			if (path && *path)
+			{
+				strcat(path, "/");
+				strcat(path, cmd);
+				if (is_cmd(info, path))
+					return (path);
+			}
+			curr_pos = i + 1;  // Skip past the colon
+		}
+		i++;
+	}
+
+	// Check the last segment after the last colon
+	path = dup_chars(pathstr, curr_pos, i);
+	if (path && *path)
+	{
+		strcat(path, "/");
+		strcat(path, cmd);
+		if (is_cmd(info, path))
+			return (path);
+	}
+
+	return (NULL);
 }
 

@@ -1,165 +1,154 @@
 #include "shell.h"
-#include <stdlib.h>
-#include <string.h>
 
 /**
- * get_env_var - Gets the value of an environment variable.
- * @name: The name of the environment variable.
+ * is_command_separator - determines if current character in buffer is a command separator
+ * @info: the parameter struct
+ * @buffer: the character buffer
+ * @position: pointer to current position in buffer
  *
- * Return: The value of the environment variable or NULL if not found.
+ * Return: 1 if separator, 0 otherwise
  */
-char *get_env_var(const char *name)
+int is_command_separator(info_t *info, char *buffer, size_t *position)
 {
-    extern char **environ;
-    char **env = environ;
-    size_t name_len = strlen(name);
+    size_t index = *position;
 
-    while (*env)
+    if (buffer[index] == '|' && buffer[index + 1] == '|')
     {
-        if (strncmp(*env, name, name_len) == 0 && (*env)[name_len] == '=')
-        {
-            return *env + name_len + 1;
-        }
-        env++;
+        buffer[index] = 0;
+        index++;
+        info->cmd_buf_type = CMD_OR;
     }
-
-    return NULL;
+    else if (buffer[index] == '&' && buffer[index + 1] == '&')
+    {
+        buffer[index] = 0;
+        index++;
+        info->cmd_buf_type = CMD_AND;
+    }
+    else if (buffer[index] == ';')
+    {
+        buffer[index] = 0;
+        info->cmd_buf_type = CMD_CHAIN;
+    }
+    else
+        return (0);
+    *position = index;
+    return (1);
 }
 
 /**
- * set_env_var - Sets or updates an environment variable.
- * @name: The name of the environment variable.
- * @value: The value of the environment variable.
- * @overwrite: If non-zero, overwrite an existing variable.
+ * adjust_chain - adjusts chaining based on the last command status
+ * @info: the parameter struct
+ * @buffer: the character buffer
+ * @position: pointer to current position in buffer
+ * @start: starting position in buffer
+ * @length: length of buffer
  *
- * Return: 0 on success, -1 on failure.
+ * Return: Void
  */
-int set_env_var(const char *name, const char *value, int overwrite)
+void adjust_chain(info_t *info, char *buffer, size_t *position, size_t start, size_t length)
 {
-    extern char **environ;
-    char **env = environ;
-    size_t name_len = strlen(name);
-    size_t value_len = strlen(value);
-    size_t new_len = name_len + value_len + 2; // +2 for '=' and '\0'
-    char *new_env_var;
-    
-    while (*env)
+    size_t index = *position;
+
+    if (info->cmd_buf_type == CMD_AND)
     {
-        if (strncmp(*env, name, name_len) == 0 && (*env)[name_len] == '=')
+        if (info->status)
         {
-            if (overwrite)
-            {
-                new_env_var = malloc(new_len);
-                if (new_env_var == NULL)
-                {
-                    perror("malloc");
-                    return -1;
-                }
-                snprintf(new_env_var, new_len, "%s=%s", name, value);
-                *env = new_env_var;
-                return 0;
-            }
-            return 0; // Do nothing if not overwriting
+            buffer[start] = 0;
+            index = length;
         }
-        env++;
+    }
+    if (info->cmd_buf_type == CMD_OR)
+    {
+        if (!info->status)
+        {
+            buffer[start] = 0;
+            index = length;
+        }
     }
 
-    // Variable not found, add it
-    new_env_var = malloc(new_len);
-    if (new_env_var == NULL)
-    {
-        perror("malloc");
-        return -1;
-    }
-    snprintf(new_env_var, new_len, "%s=%s", name, value);
-    // Append new variable to environ
-    if (environ_add(new_env_var) != 0)
-    {
-        free(new_env_var);
-        return -1;
-    }
-
-    return 0;
+    *position = index;
 }
 
 /**
- * environ_add - Adds a new environment variable to environ.
- * @new_env_var: The new environment variable to add.
+ * process_alias - processes aliases in the tokenized string
+ * @info: the parameter struct
  *
- * Return: 0 on success, -1 on failure.
+ * Return: 1 if processed, 0 otherwise
  */
-int environ_add(const char *new_env_var)
+int process_alias(info_t *info)
 {
-    extern char **environ;
-    size_t i = 0;
-    char **new_environ;
-    
-    // Find the number of environment variables
-    while (environ[i])
-        i++;
-    
-    new_environ = realloc(environ, sizeof(char *) * (i + 2));
-    if (new_environ == NULL)
-    {
-        perror("realloc");
-        return -1;
-    }
+    int iteration;
+    list_t *alias_node;
+    char *separator_pos;
 
-    new_environ[i] = strdup(new_env_var);
-    if (new_environ[i] == NULL)
+    for (iteration = 0; iteration < 10; iteration++)
     {
-        perror("strdup");
-        return -1;
+        alias_node = node_starts_with(info->alias, info->argv[0], '=');
+        if (!alias_node)
+            return (0);
+        free(info->argv[0]);
+        separator_pos = _strchr(alias_node->str, '=');
+        if (!separator_pos)
+            return (0);
+        separator_pos = _strdup(separator_pos + 1);
+        if (!separator_pos)
+            return (0);
+        info->argv[0] = separator_pos;
     }
-    new_environ[i + 1] = NULL;
-    
-    environ = new_environ;
-    
-    return 0;
+    return (1);
 }
 
 /**
- * unset_env_var - Unsets an environment variable.
- * @name: The name of the environment variable to unset.
+ * process_vars - processes variables in the tokenized string
+ * @info: the parameter struct
  *
- * Return: 0 on success, -1 on failure.
+ * Return: 1 if processed, 0 otherwise
  */
-int unset_env_var(const char *name)
+int process_vars(info_t *info)
 {
-    extern char **environ;
-    char **env = environ;
-    char **new_environ;
-    size_t i = 0;
-    size_t j = 0;
-    
-    // Find the number of environment variables
-    while (env[i])
-        i++;
-    
-    new_environ = malloc(sizeof(char *) * i);
-    if (new_environ == NULL)
+    int index = 0;
+    list_t *env_node;
+
+    for (index = 0; info->argv[index]; index++)
     {
-        perror("malloc");
-        return -1;
-    }
-    
-    // Copy variables except the one to be removed
-    env = environ;
-    while (*env)
-    {
-        if (strncmp(*env, name, strlen(name)) != 0 || (*env)[strlen(name)] != '=')
+        if (info->argv[index][0] != '$' || !info->argv[index][1])
+            continue;
+
+        if (!_strcmp(info->argv[index], "$?"))
         {
-            new_environ[j++] = *env;
+            replace_string(&(info->argv[index]),
+                _strdup(convert_number(info->status, 10, 0)));
+            continue;
         }
-        env++;
+        if (!_strcmp(info->argv[index], "$$"))
+        {
+            replace_string(&(info->argv[index]),
+                _strdup(convert_number(getpid(), 10, 0)));
+            continue;
+        }
+        env_node = node_starts_with(info->env, &info->argv[index][1], '=');
+        if (env_node)
+        {
+            replace_string(&(info->argv[index]),
+                _strdup(_strchr(env_node->str, '=') + 1));
+            continue;
+        }
+        replace_string(&info->argv[index], _strdup(""));
     }
-    
-    new_environ[j] = NULL;
-    
-    // Free the old environment and set the new one
-    free(environ);
-    environ = new_environ;
-    
-    return 0;
+    return (0);
+}
+
+/**
+ * replace_text - replaces the old string with a new one
+ * @old: pointer to the old string
+ * @new: new string
+ *
+ * Return: 1 if replaced, 0 otherwise
+ */
+int replace_text(char **old, char *new)
+{
+    free(*old);
+    *old = new;
+    return (1);
 }
 

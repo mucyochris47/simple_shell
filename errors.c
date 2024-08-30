@@ -1,39 +1,86 @@
 #include "shell.h"
 
 /**
- * print_error - Prints an error message to standard error.
- * @command: the name of the command that caused the error.
- * @message: the error message to be displayed.
+ * print_err_str - outputs a string to stderr
+ * @string: the string to be output
+ *
+ * Return: Nothing
  */
-void print_error(char *command, char *message)
+void print_err_str(char *string)
 {
-    _puts(command);
-    _puts(": ");
-    _puts(message);
-    _puts("\n");
-}
+    int index = 0;
 
-/**
- * _puts - Writes a string to standard output.
- * @str: the string to be written.
- */
-void _puts(char *str)
-{
-    for (int i = 0; str[i] != '\0'; i++)
+    if (!string)
+        return;
+    while (string[index] != '\0')
     {
-        _putchar(str[i]);
+        write_err_char(string[index]);
+        index++;
     }
 }
 
 /**
- * _putchar - Writes a character to standard output.
- * @c: the character to be written.
- * 
+ * write_err_char - writes a single character to stderr
+ * @char_to_write: The character to print
+ *
  * Return: On success 1.
- *         On error, -1 is returned, and errno is set appropriately.
+ * On error, -1 is returned, and errno is set appropriately.
  */
-int _putchar(char c)
+int write_err_char(char char_to_write)
 {
-    return (write(1, &c, 1));
+    static int count;
+    static char buffer[WRITE_BUF_SIZE];
+
+    if (char_to_write == BUF_FLUSH || count >= WRITE_BUF_SIZE)
+    {
+        write(2, buffer, count);
+        count = 0;
+    }
+    if (char_to_write != BUF_FLUSH)
+        buffer[count++] = char_to_write;
+    return (1);
+}
+
+/**
+ * write_char_fd - writes a character to a specified file descriptor
+ * @char_to_write: The character to print
+ * @fd: The file descriptor to write to
+ *
+ * Return: On success 1.
+ * On error, -1 is returned, and errno is set appropriately.
+ */
+int write_char_fd(char char_to_write, int fd)
+{
+    static int count;
+    static char buffer[WRITE_BUF_SIZE];
+
+    if (char_to_write == BUF_FLUSH || count >= WRITE_BUF_SIZE)
+    {
+        write(fd, buffer, count);
+        count = 0;
+    }
+    if (char_to_write != BUF_FLUSH)
+        buffer[count++] = char_to_write;
+    return (1);
+}
+
+/**
+ * print_str_fd - prints a string to a specified file descriptor
+ * @string: the string to be printed
+ * @fd: the file descriptor to write to
+ *
+ * Return: the number of characters written
+ */
+int print_str_fd(char *string, int fd)
+{
+    int count = 0;
+
+    if (!string)
+        return (0);
+    while (*string)
+    {
+        count += write_char_fd(*string++, fd);
+    }
+    return (count);
 }
 
