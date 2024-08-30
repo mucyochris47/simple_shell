@@ -1,85 +1,100 @@
 #include "shell.h"
 
 /**
- * _myexit - Exits the shell.
- * @info: Structure containing potential arguments. Used to maintain
- *        constant function prototype.
- * Return: (0) if info.argv[0] != "exit"
+ * exit_shell - Terminates the shell session
+ * @info: Structure containing potential arguments for the function.
+ *        Maintains a consistent function prototype.
+ * Return: Exits with the specified exit status.
+ *         (0) if info.argv[0] != "exit"
  */
-int _myexit(info_t *info)
+int exit_shell(info_t *info)
 {
-    int exit_code;
+	int exit_status;
 
-    if (info->argv[1]) /* If there is an exit argument */
-    {
-        exit_code = _atoi(info->argv[1]);
-        if (exit_code < 0)
-        {
-            /* Handle invalid exit code */
-            info->status = 2;
-            print_error(info, "Illegal number: ");
-            _puts(info->argv[1]);
-            _putchar('\n');
-            return (1);
-        }
-        info->status = exit_code;
-        exit(exit_code);
-    }
-    exit(info->status);
+	if (info->argv[1]) /* If an exit argument is provided */
+	{
+		exit_status = parse_error(info->argv[1]);
+		if (exit_status == -1)
+		{
+			info->status = 2;
+			print_error(info, "Invalid number: ");
+			print_str(info->argv[1]);
+			print_char('\n');
+			return (1);
+		}
+		info->err_num = parse_error(info->argv[1]);
+		return (-2);
+	}
+	info->err_num = -1;
+	return (-2);
 }
 
 /**
- * _myenv - Prints the current environment.
- * @info: Structure containing potential arguments. Used to maintain
- *        constant function prototype.
- * Return: Always 0
+ * change_dir - Changes the current working directory
+ * @info: Structure containing potential arguments for the function.
+ *        Maintains a consistent function prototype.
+ * Return: Always returns 0
  */
-int _myenv(info_t *info)
+int change_dir(info_t *info)
 {
-    char **env = info->env;
+	char *current_dir, *target_dir, buffer[1024];
+	int change_dir_result;
 
-    while (*env)
-    {
-        _puts(*env);
-        _putchar('\n');
-        env++;
-    }
-    return (0);
+	current_dir = getcwd(buffer, 1024);
+	if (!current_dir)
+		print_str("Error: Unable to get current working directory\n");
+
+	if (!info->argv[1])
+	{
+		target_dir = get_env_variable(info, "HOME=");
+		if (!target_dir)
+			change_dir_result = chdir((target_dir = get_env_variable(info, "PWD=")) ? target_dir : "/");
+		else
+			change_dir_result = chdir(target_dir);
+	}
+	else if (string_compare(info->argv[1], "-") == 0)
+	{
+		if (!get_env_variable(info, "OLDPWD="))
+		{
+			print_str(current_dir);
+			print_char('\n');
+			return (1);
+		}
+		print_str(get_env_variable(info, "OLDPWD="));
+		print_char('\n');
+		change_dir_result = chdir((target_dir = get_env_variable(info, "OLDPWD=")) ? target_dir : "/");
+	}
+	else
+		change_dir_result = chdir(info->argv[1]);
+
+	if (change_dir_result == -1)
+	{
+		print_error(info, "Unable to change directory to ");
+		print_str(info->argv[1]);
+		print_char('\n');
+	}
+	else
+	{
+		set_env_variable(info, "OLDPWD", get_env_variable(info, "PWD="));
+		set_env_variable(info, "PWD", getcwd(buffer, 1024));
+	}
+	return (0);
 }
 
 /**
- * _mysetenv - Initialize a new environment variable or modify an existing one.
- * @info: Structure containing potential arguments. Used to maintain
- *        constant function prototype.
- * Return: Always 0
+ * show_help - Provides help information about shell commands
+ * @info: Structure containing potential arguments for the function.
+ *        Maintains a consistent function prototype.
+ * Return: Always returns 0
  */
-int _mysetenv(info_t *info)
+int show_help(info_t *info)
 {
-    if (info->argc != 3)
-    {
-        _puts("Incorrect number of arguments\n");
-        return (1);
-    }
-    if (_setenv(info->argv[1], info->argv[2], 1) == 0)
-        return (0);
-    return (1);
-}
+	char **args_list;
 
-/**
- * _myunsetenv - Remove an environment variable.
- * @info: Structure containing potential arguments. Used to maintain
- *        constant function prototype.
- * Return: Always 0
- */
-int _myunsetenv(info_t *info)
-{
-    if (info->argc != 2)
-    {
-        _puts("Incorrect number of arguments\n");
-        return (1);
-    }
-    if (_unsetenv(info->argv[1]) == 0)
-        return (0);
-    return (1);
+	args_list = info->argv;
+	print_str("Help functionality is active, but the implementation is incomplete.\n");
+	if (0)
+		print_str(*args_list); /* Placeholder to avoid unused variable warning */
+	return (0);
 }
 
